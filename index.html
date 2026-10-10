@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>The Shema & Prayers</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: var(--bg, #000); color: var(--ink, #f2f2f2); font: 18px/1.5 -apple-system, system-ui, sans-serif; }
+    main { max-width: 38rem; margin: 0 auto; padding: 12vh 1.5rem 6rem; }
+    h1 { font-weight: 500; font-size: 1.6rem; }
+    p { color: var(--ink); opacity: 0.78; }
+    a { color: inherit; }
+    nav { display: flex; flex-direction: column; gap: 0.75rem; margin: 2.5rem 0; }
+    nav a { display: block; text-decoration: none; border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent); padding: 0.9rem 1rem; }
+    nav a span { display: block; color: var(--ink); opacity: 0.55; font-size: 0.9rem; margin-top: 0.2rem; }
+    .support { margin-top: 3rem; font-size: 0.85rem; color: var(--ink); opacity: 0.5; text-align: center; }
+    .support a { text-decoration: underline; opacity: 0.8; }
+    #stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8vh 8vw; box-sizing: border-box; gap: 2.5rem; font-size: 22px; }
+    #line { margin: 0; max-width: 24em; min-height: 1.5em; white-space: pre-line; }
+    #star { width: 90px; height: auto; margin-top: 1rem; opacity: 0.85; }
+    #bar { position: fixed; top: 1rem; left: 1rem; right: 1rem; display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    #bar a, #setlabel, #switch, #themes button { color: var(--ink); opacity: 0.65; background: transparent; border: 0; font: 13px -apple-system, system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+    #switch { border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); padding: 0.4rem 0.6rem; }
+    #themes { display: flex; gap: 0.4rem; }
+    #themes i { display: block; width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 40%, transparent); }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const FEEDING = "https://give.feedingamerica.org/8u355rD-u02ytwE0jUq9jQ2?source=Y26YP6D1Z&utm_medium=cpc&utm_source=paid&utm_term=gift&utm_content=bing&utm_campaign=thanksgiving&gclid=49b8ac7ea3a91f16ecc9c6b927de9e79&gclsrc=3p.ds&msclkid=49b8ac7ea3a91f16ecc9c6b927de9e79";
+    const COFFEE = "https://buymeacoffee.com/estheraloe";
+    const params = new URLSearchParams(location.search);
+    const page = params.get("page") || "home";
+    const app = document.getElementById("app");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let paused = false;
+    let pauseWaiters = [];
+
+    const themes = [
+      ["#000000","#f2f2f2"],
+      ["#141a24","#e7eef8"],
+      ["#1c1714","#f3ebe3"],
+      ["#10211c","#e7f3ee"],
+      ["#ffffff","#1a1a1a"],
+      ["#f7f5f2","#2a241f"],
+      ["#eef3f0","#1a2e28"]
+    ];
+    function loadTheme() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("theme") || "null");
+        if (Array.isArray(saved) && saved.length === 2) return saved;
+      } catch (e) {}
+      return themes[0];
+    }
+    function applyTheme(theme) {
+      document.documentElement.style.setProperty("--bg", theme[0]);
+      document.documentElement.style.setProperty("--ink", theme[1]);
+      localStorage.setItem("theme", JSON.stringify(theme));
+    }
+    applyTheme(loadTheme());
+
+    function themeDots() {
+      return `<div id="themes">${themes.map((t, i) => `<button type="button" data-i="${i}" aria-label="Theme ${i + 1}"><i style="background:${t[0]}"></i></button>`).join("")}</div>`;
+    }
+    function bindDots() {
+      document.querySelectorAll("#themes button").forEach((button) => {
+        button.addEventListener("click", (event) => { event.stopPropagation(); applyTheme(themes[button.dataset.i]); });
+      });
+    }
+    function bindPause(stage) {
+      stage.addEventListener("click", (event) => {
+        if (event.target.closest("a, button")) return;
+        paused = !paused;
+        if (!paused) pauseWaiters.splice(0).forEach((resume) => resume());
+      });
+    }
+    function waitWhilePaused() {
+      if (!paused) return Promise.resolve();
+      return new Promise((resolve) => pauseWaiters.push(resolve));
+    }
+
+    const sleep = async (ms) => {
+      let left = ms;
+      while (left > 0) {
+        await waitWhilePaused();
+        const chunk = Math.min(50, left);
+        await new Promise((r) => setTimeout(r, chunk));
+        left -= chunk;
+      }
+      await waitWhilePaused();
+    };
+    function delaysBetween(min, max) {
+      const values = [];
+      for (let v = min; v <= max; v += 5) values.push(v);
+      return values;
+    }
+    async function typeLine(el, text, delays, hold) {
+      await waitWhilePaused();
+      if (reduceMotion) el.textContent = text;
+      else {
+        el.textContent = "";
+        for (const ch of text) { await waitWhilePaused(); el.textContent += ch; await sleep(delays[Math.floor(Math.random() * delays.length)]); }
+      }
+      await sleep(hold);
+    }
+
+    const starChaiSVG = `<svg id="star" viewBox="0 0 466 466" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M372.158,233.012l63.008-109.114c1.43-2.475,1.43-5.525,0-8c-1.429-2.476-4.07-4-6.928-4H302.204L239.883,3.999
+	C238.455,1.524,235.814,0,232.957,0c0,0,0,0-0.001,0c-2.857,0-5.497,1.524-6.927,3.998l-62.35,107.9H37.762
+	c-2.858,0-5.5,1.525-6.928,4c-1.429,2.475-1.429,5.525,0,8l62.999,109.098L30.834,342.102c-1.429,2.476-1.429,5.525,0,8
+	c1.429,2.475,4.07,4,6.928,4h126.005L226.072,462c1.429,2.475,4.07,4,6.928,4s5.499-1.524,6.928-4l62.306-107.898h126.005
+	c2.858,0,5.5-1.525,6.929-4c1.429-2.476,1.428-5.525-0.001-8L372.158,233.012z M414.381,127.897l-77.896,134.896
+	c-0.027,0.043-0.05,0.088-0.076,0.132l-23.769,41.162h-20.804l84.408-146.173c1.43-2.475,1.43-5.525,0-8
+	c-1.429-2.476-4.07-4-6.928-4h-47.465l-10.406-18.016H414.381z M343.287,283.009l12.172,21.078h-24.343L343.287,283.009z
+	 M192.64,304.087l-41.04-71.071l41.074-71.103h80.686L314.409,233l-41.049,71.087H192.64z M343.277,183.009l-12.185-21.096h24.366
+	L343.277,183.009z M232.955,23.992l76.989,133.296c0.202,0.432,0.438,0.843,0.71,1.229l23.386,40.489l-10.392,17.997l-38.162-66.088
+	c-0.277-0.685-0.648-1.32-1.094-1.895l-44.462-76.998c-1.428-2.474-4.068-3.999-6.924-4c-0.001,0-0.002,0-0.003,0
+	c-2.855,0-5.495,1.522-6.925,3.994l-23.071,39.881h-20.845L232.955,23.992z M244.478,111.897h-22.99l11.505-19.888L244.478,111.897z
+	 M51.619,127.897h202.098l10.403,18.016H96.684c-2.858,0-5.5,1.525-6.928,4c-1.429,2.475-1.429,5.525,0,8l23.716,41.07
+	l-10.402,18.015L51.619,127.897z M122.71,182.985l-12.168-21.072h24.335L122.71,182.985z M51.619,338.103l58.256-100.891
+	c0.024-0.039,0.045-0.079,0.068-0.118l43.41-75.18h20.843l-38.649,66.905c-0.009,0.015-0.017,0.031-0.026,0.046l-45.764,79.222
+	c-1.43,2.475-1.43,5.525-0.001,8c1.429,2.476,4.07,4.001,6.929,4.001h47.44l10.403,18.016H51.619z M122.717,283.015l12.168,21.072
+	h-24.34L122.717,283.015z M233,442.002l-76.818-133.029c-0.248-0.586-0.571-1.131-0.945-1.636l-23.281-40.316l10.404-18.01
+	l38.155,66.075c0.277,0.685,0.648,1.319,1.094,1.895l18.321,31.727c0.337,0.979,0.857,1.87,1.522,2.635l24.62,42.636
+	c1.429,2.475,4.07,4,6.928,4s5.499-1.524,6.928-4l23.026-39.875h20.804L233,442.002z M221.522,354.103h22.956L233,373.979
+	L221.522,354.103z M212.283,338.103l-10.403-18.016h76.068c0.008,0,0.015,0.001,0.023,0.001c0.008,0,0.015-0.001,0.023-0.001h39.234
+	c0.008,0,0.015,0.001,0.023,0.001c0.008,0,0.015-0.001,0.023-0.001h52.043c2.858,0,5.5-1.525,6.928-4c1.429-2.475,1.429-5.525,0-8
+	l-23.719-41.075l10.395-18.002l51.459,89.093H212.283z" 
+        stroke="currentColor" stroke-width="8" fill="none" stroke-linejoin="round"/>
+  <text x="233" y="255" text-anchor="middle" font-family="serif" font-size="92" fill="currentColor" font-weight="500">חי</text>
+</svg>`;
+
+    const prayers = {
+      shema: {
+        label: "Shema",
+        english: "Hear, O Israel: the Lord our God, the Lord is One.\nBlessed be the name of His glorious kingdom for ever and ever.\nYou shall love the Lord your God with all your heart, with all your soul, and with all your might.\nThese words, which I command you this day, shall be upon your heart.\nYou shall teach them diligently to your children, and shall speak of them when you sit in your house, when you walk by the way, when you lie down, and when you rise up.\nYou shall bind them as a sign upon your hand, and they shall be as frontlets between your eyes.\nYou shall write them on the doorposts of your house and on your gates.",
+        hebrew: "שְׁמַע יִשְׂרָאֵל ה' אֱלֹהֵינוּ ה' אֶחָד.\nבָּרוּךְ שֵׁם כְּבוֹד מַלְכוּתוֹ לְעוֹלָם וָעֶד.\nוְאָהַבְתָּ אֵת ה' אֱלֹהֶיךָ בְּכָל לְבָבְךָ וּבְכָל נַפְשְׁךָ וּבְכָל מְאֹדֶךָ.\nוְהָיוּ הַדְּבָרִים הָאֵלֶּה אֲשֶׁר אָנֹכִי מְצַוְּךָ הַיּוֹם עַל לְבָבֶךָ.\nוְשִׁנַּנְתָּם לְבָנֶיךָ וְדִבַּרְתָּ בָּם בְּשִׁבְתְּךָ בְּבֵיתֶךָ וּבְלֶכְתְּךָ בַדֶּרֶךְ וּבְשָׁכְבְּךָ וּבְקוּמֶךָ.\nוּקְשַׁרְתָּם לְאוֹת עַל יָדֶךָ וְהָיוּ לְטֹטָפֹת בֵּין עֵינֶיךָ.\nוּכְתַבְתָּם עַל מְזוּזוֹת בֵּיתֶךָ וּבִשְׁעָרֶיךָ.",
+        translit: "Shema Yisrael Adonai Eloheinu Adonai Echad.\nBaruch shem kevod malchuto l'olam va'ed.\nV'ahavta et Adonai Elohecha b'chol l'vavcha uv'chol nafsh'cha uv'chol m'odecha.\nV'hayu had'varim ha'eleh asher anochi m'tzav'cha hayom al l'vavecha.\nV'shinantam l'vanecha v'dibarta bam b'shivt'cha b'veitecha uv'lecht'cha vaderech uv'shochb'cha uv'kumecha.\nUkshartam l'ot al yadecha v'hayu l'totafot bein einecha.\nUchtavtam al mezuzot beitecha uvish'arecha."
+      },
+      modeh: {
+        label: "Modeh Ani",
+        english: "I give thanks before You, living and eternal King, for You have returned my soul within me with compassion; great is Your faithfulness.",
+        hebrew: "מוֹדֶה אֲנִי לְפָנֶיךָ מֶלֶךְ חַי וְקַיָּם, שֶׁהֶחֱזַרְתָּ בִּי נִשְׁמָתִי בְּחֶמְלָה. רַבָּה אֱמוּנָתֶךָ.",
+        translit: "Modeh ani lefanecha melech chai v'kayam, shehechezarta bi nishmati b'chemlah. Rabbah emunatecha."
+      },
+      amidah: {
+        label: "Amidah (Opening)",
+        english: "Blessed are You, Lord our God and God of our fathers, God of Abraham, God of Isaac, and God of Jacob, the great, mighty and awesome God, God Most High, Who bestows beneficial kindnesses and creates everything, Who recalls the kindnesses of the Patriarchs and brings a Redeemer to their children’s children, for His Name’s sake, in love.",
+        hebrew: "בָּרוּךְ אַתָּה ה' אֱלֹהֵינוּ וֵאלֹהֵי אֲבוֹתֵינוּ אֱלֹהֵי אַבְרָהָם אֱלֹהֵי יִצְחָק וֵאלֹהֵי יַעֲקֹב הָאֵל הַגָּדוֹל הַגִּבּוֹר וְהַנּוֹרָא אֵל עֶלְיוֹן גּוֹמֵל חֲסָדִים טוֹבִים וְקוֹנֵה הַכֹּל וְזוֹכֵר חַסְדֵי אָבוֹת וּמֵבִיא גוֹאֵל לִבְנֵי בְנֵיהֶם לְמַעַן שְׁמוֹ בְּאַהֲבָה.",
+        translit: "Baruch atah Adonai Eloheinu v'Elohei avoteinu, Elohei Avraham, Elohei Yitzchak, v'Elohei Yaakov, ha'El hagadol hagibor v'hanora, El elyon, gomel chasadim tovim, v'koneh hakol, v'zocher chasdei avot, u'meivi go'el livnei v'neihem l'ma'an sh'mo b'ahavah."
+      },
+      aleinu: {
+        label: "Aleinu",
+        english: "It is our duty to praise the Master of all, to ascribe greatness to the Author of creation, Who has not made us like the nations of the lands, nor placed us like the families of the earth; Who has not assigned our portion like theirs, nor our lot like all their multitudes.",
+        hebrew: "עָלֵינוּ לְשַׁבֵּחַ לַאֲדוֹן הַכֹּל לָתֵת גְּדֻלָּה לְיוֹצֵר בְּרֵאשִׁית שֶׁלֹּא עָשָׂנוּ כְּגוֹיֵי הָאֲרָצוֹת וְלֹא שָׂמָנוּ כְּמִשְׁפְּחוֹת הָאֲדָמָה שֶׁלֹּא שָׂם חֶלְקֵנוּ כָּהֶם וְגוֹרָלֵנוּ כְּכָל הֲמוֹנָם.",
+        translit: "Aleinu l'shabe'ach la'Adon hakol, latet gedulah l'yotzer bereshit, shelo asanu k'goyei ha'aratzot, v'lo samanu k'mishp'chot ha'adamah, shelo sam chelkeinu kahem, v'goralenu k'chol hamonam."
+      },
+      shehecheyanu: {
+        label: "Shehecheyanu",
+        english: "Blessed are You, Lord our God, King of the universe, Who has kept us alive, sustained us, and brought us to this season.",
+        hebrew: "בָּרוּךְ אַתָּה ה' אֱלֹהֵינוּ מֶלֶךְ הָעוֹלָם שֶׁהֶחֱיָנוּ וְקִיְּמָנוּ וְהִגִּיעָנוּ לַזְּמַן הַזֶּה.",
+        translit: "Baruch atah Adonai Eloheinu melech ha'olam, shehecheyanu v'kiy'manu v'higianu laz'man hazeh."
+      }
+    };
+
+    if (page === "home") {
+      app.innerHTML = `<main>
+        <h1>The Shema & Prayers</h1>
+        <p>A quiet screen for prayer.</p>
+        <nav>
+          <a href="?page=modeh">Modeh Ani<span>Morning gratitude.</span></a>
+          <a href="?page=shema">Shema<span>Hear, O Israel.</span></a>
+          <a href="?page=amidah">Amidah<span>Opening blessing.</span></a>
+          <a href="?page=aleinu">Aleinu<span>It is our duty to praise.</span></a>
+          <a href="?page=shehecheyanu">Shehecheyanu<span>Blessing for special moments.</span></a>
+        </nav>
+        <p class="support">Support: <a href="${FEEDING}" target="_blank">Feeding America</a> · <a href="${COFFEE}" target="_blank">Buy me a coffee</a></p>
+      </main>`;
+    }
+
+    if (prayers[page]) {
+      const prayer = prayers[page];
+      const modes = ["english", "hebrew", "translit"];
+      const mode = params.get("mode") || "english";
+      const nextMode = modes[(modes.indexOf(mode) + 1) % modes.length];
+      const modeLabels = { english: "English", hebrew: "Hebrew", translit: "Transliteration" };
+
+      const text = prayer[mode] || prayer.english;
+
+      app.innerHTML = `<div id="bar"><a href="?">Back</a><button id="switch" type="button" aria-label="Switch language">${modeLabels[mode]}</button>${themeDots()}</div><div id="stage"><p id="line"></p>${starChaiSVG}</div>`;
+      bindDots();
+      bindPause(document.getElementById("stage"));
+      document.getElementById("switch").addEventListener("click", () => {
+        location.search = `?page=${page}&mode=${nextMode}`;
+      });
+      const line = document.getElementById("line");
+      const delays = delaysBetween(55, 85);
+      (async function run() {
+        while (true) {
+          await typeLine(line, text, delays, 2800);
+        }
+      })();
+    }
+  </script>
+</body>
+</html>
